@@ -1,0 +1,6 @@
+{
+  "name": "StudentSuccess AI",
+  "description": "AI-Powered Student Analytics and Success Platform — Smart Campus Analytics to Predict, Understand, Intervene, and Improve Student Success.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

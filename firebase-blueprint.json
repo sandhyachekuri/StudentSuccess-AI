@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "UserAuditProfile": {
+      "title": "UserAuditProfile",
+      "description": "Synchronized institutional identity audit record linking a verified Firebase Authentication UID to its SQLite application profile ID and role.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Verified Firebase Authentication UID matching request.auth.uid.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sqliteUserId": {
+          "type": "string",
+          "description": "Primary key in SQLite users table (e.g., USR-ADMIN-01, USR-FAC-101, USR-STU-001).",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Full institutional display name of the user.",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "department": {
+          "type": "string",
+          "description": "Assigned academic department or governance unit.",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of most recent verified authentication."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "sqliteUserId",
+        "displayName",
+        "department",
+        "lastLoginAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRegistryEntry": {
+      "title": "AdminRegistryEntry",
+      "description": "Trusted Firestore admin membership marker keyed by Firebase UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Administrator Firebase UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "sqliteUserId": {
+          "type": "string",
+          "description": "Linked SQLite Administrator ID (e.g., USR-ADMIN-01).",
+          "minLength": 3,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Immutable server timestamp."
+        }
+      },
+      "required": ["uid", "sqliteUserId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/user_audit_profiles/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserAuditProfile"
+      },
+      "description": "Stores non-PII institutional identity audit metadata per verified Firebase UID; primary roles and academic records reside in SQLite."
+    },
+    "/admins/{adminUid}": {
+      "schema": {
+        "$ref": "#/entities/AdminRegistryEntry"
+      },
+      "description": "Stores verified administrator UIDs for ABAC checks."
+    }
+  }
+}
