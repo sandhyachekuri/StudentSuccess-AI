@@ -1,0 +1,140 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1: Global Safety Net (Default-Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Hardened Global Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrapAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'sandhyachekuri2718@gmail.com';
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        isBootstrapAdmin() ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Pillar 2: Validation Blueprint for UserAuditProfile
+    function isValidUserAuditProfile(data) {
+      return data.keys().hasAll([
+        'uid',
+        'sqliteUserId',
+        'displayName',
+        'department',
+        'lastLoginAt',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid',
+        'sqliteUserId',
+        'displayName',
+        'department',
+        'lastLoginAt',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.sqliteUserId is string && data.sqliteUserId.size() >= 3 && data.sqliteUserId.size() <= 64 && data.sqliteUserId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 120 &&
+      data.department is string && data.department.size() >= 2 && data.department.size() <= 80 &&
+      data.lastLoginAt is timestamp &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    // Pillar 2: Validation Blueprint for AdminRegistryEntry
+    function isValidAdminRegistryEntry(data) {
+      return data.keys().hasAll(['uid', 'sqliteUserId', 'createdAt']) &&
+      data.keys().hasOnly(['uid', 'sqliteUserId', 'createdAt']) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.sqliteUserId is string && data.sqliteUserId.size() >= 3 && data.sqliteUserId.size() <= 64 && data.sqliteUserId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.createdAt is timestamp;
+    }
+
+    // Collection 1: /user_audit_profiles/{userId}
+    match /user_audit_profiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isValidUserAuditProfile(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().uid == userId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        incoming().lastLoginAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidId(userId) &&
+        isValidUserAuditProfile(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().sqliteUserId == existing().sqliteUserId &&
+            incoming().lastLoginAt == request.time &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName',
+              'department',
+              'lastLoginAt',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(userId) && isAdmin();
+    }
+
+    // Collection 2: /admins/{adminUid}
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list: if isSignedIn() && resource.data.uid == request.auth.uid;
+
+      allow create: if isVerifiedUser() &&
+        isValidId(adminUid) &&
+        isValidAdminRegistryEntry(incoming()) &&
+        incoming().uid == adminUid &&
+        incoming().createdAt == request.time &&
+        isAdmin();
+
+      allow update: if isVerifiedUser() &&
+        isValidId(adminUid) &&
+        isValidAdminRegistryEntry(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['sqliteUserId']) &&
+        isAdmin();
+
+      allow delete: if isVerifiedUser() && isValidId(adminUid) && isAdmin();
+    }
+  }
+}
