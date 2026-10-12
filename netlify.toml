@@ -1,0 +1,24 @@
+[build]
+  command = "bun install && bun run build"
+  publish = "dist"
+
+# Client-side routes (/login, /admin/dashboard, ...) fall back to the SPA shell.
+[[redirects]]
+  from = "/login"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/faculty/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/student/*"
+  to = "/index.html"
+  status = 200
